@@ -63,6 +63,7 @@ class BurpZip():
         :param length: 生成指定密码长度
         :return:密码
         '''
+
         if (length == 1):
             for x in key:
                 yield x
@@ -121,7 +122,7 @@ class BurpZip():
                 if self.UnzipFileTest(pwd=pwd):
                     self.UnzipFile(pwd=pwd)
             else:
-                key=input("请选择攻击字典：a纯数字，b纯小写字母，c纯大写字母，d大小写字母混合，e数字字母混合，默认e")
+                key=input("请选择攻击字典：a纯数字，b纯小写字母，c纯大写字母，d大小写字母混合，e数字字母混合，默认e\n")
                 length=input("请合理输入密码长度上限：\n")
                 if key == "a":
                     self.key=a
@@ -138,7 +139,29 @@ class BurpZip():
                 except:
                     self.length = int("15")    #其余情况默认长度为15
                 print("开始爆破：\n密码字典内容："+self.key+"\n密码长度上限："+str(self.length))
+                self.ThreadRun()
 
+
+    def Burp(self,key,length):
+        '''
+        调用PayLoad()，使用生成的密码进行爆破
+        :param key: 密码字典
+        :param length: 密码长度
+        :return:
+        '''
+        print("run")
+        for x in self.PayLoad(key,length):
+            if self.UnzipFileTest(pwd=x):
+                self.UnzipFile(pwd=x)
+
+
+    def ThreadRun(self):
+        '''
+        每个线程跑特定长度的密码
+        :return:
+        '''
+        for i in range(self.length):    #跑特定长度的密码
+            _thread.start_new_thread(self.Burp,(self.key,i,))
 
 
     def FileClose(self):
@@ -161,8 +184,8 @@ def main():
     x = sys.argv[1]            #获取文件名
     print("操作对象："+x)
     R=BurpZip(x)                 #启动
-    R.Run()
-    R.FileClose()
+    R.Run()                      #进行爆破
+    R.FileClose()                #关闭文件
 
 
 if __name__ == "__main__":

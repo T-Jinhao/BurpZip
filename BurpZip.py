@@ -12,6 +12,8 @@ import sys
 import zipfile
 import os
 import threading
+import time
+
 
 #攻击字典
 a="0123456789"                     #纯数字
@@ -19,6 +21,7 @@ b="abcdefghijklmnopqrstuvwxyz"     #纯小写字母
 c=b.upper()                        #纯大写字母
 d=b+c                              #大小写字母混合
 e=a+d                              #数字+字母组合
+
 
 
 class BurpZip():
@@ -39,6 +42,7 @@ class BurpZip():
                 print("-"*35+"文件信息"+"-"*35+"\n")
                 print(self.zp.printdir())          #输出压缩包文件信息
                 self.f = self.zp.namelist()[-1]    #定义为最后一个文件，确保非目录，用以爆破测试
+                self.fatherpath= self.FilePath()
                 print("-"*35+"文件信息"+"-"*35+"\n")
                 # self.Run()                         #启动爆破
             except:
@@ -83,12 +87,13 @@ class BurpZip():
         :param pwd:传入密码
         :return: 成功与否
         '''
-        fatherpath = self.FilePath()          #获取传入文件的父目录
+        #fatherpath = self.FilePath()          #获取传入文件的父目录
+
         pwd=pwd.encode()
         #print(pwd)
 
         try:
-            self.zp.extract(self.f,path=fatherpath,pwd=pwd)   #解压压缩包
+            self.zp.extract(self.f,path=self.fatherpath,pwd=pwd)   #解压压缩包
             # print("ok")
             return True
         except:
@@ -110,6 +115,7 @@ class BurpZip():
             except:
                 print("[X  解压失败] X " + f )
         print("压缩文件已全部解压，压缩包密码为：" + pwd.decode())
+        exit()
         return 0
 
     def Run(self):
@@ -162,8 +168,9 @@ class BurpZip():
             #print(x)
             if self.UnzipFileTest(pwd=x):       #若测试解压成功，则用当前密码进行全部解压
                 self.UnzipFile(pwd=x)
-                print("爆破完成")
-                self.KillThreads()               #终止全部线程标志
+                print("*** 爆破完成 ***")
+                #self.FileClose()
+                #self.exitflag=True               #终止全部线程标志
                 return False                    #中断线程
         print("线程-"+str(length)+"已跑完")
         return False                            #中断线程
@@ -176,24 +183,17 @@ class BurpZip():
         每个线程跑特定长度的密码
         :return:
         '''
-        #self.Burp(a,4)
 
+        #self.exitflag=False        #线程终止标志
         self.threads=[]            #线程池
         for i in range(1,self.length+1):
             thread=threading.Thread(target=self.Burp,args=(self.key,i))    #启动爆破线程
             self.threads.append(thread)        #添加进线程池
-            thread.start()
 
-
-    def KillThreads(self):
         for t in self.threads:
-            t.join()
-        print("所有线程已停止")
-
-
-
-
-
+            t.start()
+        while 1:
+            time.sleep(0.05)    #防止线程堵塞
 
 
 
@@ -206,23 +206,12 @@ class BurpZip():
 
 
 
-
-
-
-
-
-
-
-
-
-
-
 def main():
     x = sys.argv[1]            #获取文件名
     print("操作对象："+x)
     R=BurpZip(x)                 #启动
     R.Run()                      #进行爆破
-    R.FileClose()                #关闭文件
+    #R.FileClose()                #关闭文件
 
 
 if __name__ == "__main__":

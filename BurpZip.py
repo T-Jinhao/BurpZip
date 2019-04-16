@@ -29,7 +29,7 @@ class BurpZip():
         self.file = name
         #self.threads_max=10
         self.OpenFile()                          #打开压缩包
-
+        self.exitflag =1                          #总开关
 
     def OpenFile(self):
         '''
@@ -115,6 +115,7 @@ class BurpZip():
             except:
                 print("[X  解压失败] X " + f )
         print("压缩文件已全部解压，压缩包密码为：" + pwd.decode())
+        self.exitflag = 0               #给各线程发出结束信号
         exit()
         return 0
 
@@ -166,6 +167,9 @@ class BurpZip():
         #num=0
         for x in self.PayLoad(key,length):  #遍历密码
             #print(x)
+            if self.exitflag==0:
+                #print("线程强制终结")    #测试用
+                break
             if self.UnzipFileTest(pwd=x):       #若测试解压成功，则用当前密码进行全部解压
                 self.UnzipFile(pwd=x)
                 print("*** 爆破完成 ***")
@@ -187,9 +191,11 @@ class BurpZip():
         #self.exitflag=False        #线程终止标志
         self.threads=[]            #线程池
         for i in range(1,self.length+1):
-            thread=threading.Thread(target=self.Burp,args=(self.key,i))    #启动爆破线程
-            self.threads.append(thread)        #添加进线程池
-
+            if self.exitflag ==1:
+             thread=threading.Thread(target=self.Burp,args=(self.key,i))    #启动爆破线程
+             self.threads.append(thread)        #添加进线程池
+            else:
+                self.threads = []       #self.exitflag==0时 清空线程池
         for t in self.threads:
             t.start()
         while 1:

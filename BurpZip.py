@@ -38,6 +38,7 @@ class BurpZip():
                 self.zp = zipfile.ZipFile(self.file)
                 print("-"*35+"文件信息"+"-"*35+"\n")
                 print(self.zp.printdir())          #输出压缩包文件信息
+                self.f = self.zp.namelist()[-1]    #定义为最后一个文件，确保非目录，用以爆破测试
                 print("-"*35+"文件信息"+"-"*35+"\n")
                 # self.Run()                         #启动爆破
             except:
@@ -85,10 +86,9 @@ class BurpZip():
         fatherpath = self.FilePath()          #获取传入文件的父目录
         pwd=pwd.encode()
         #print(pwd)
-        f = self.zp.namelist()[-1]             #以最后一个文件进行测试
 
         try:
-            self.zp.extract(f,path=fatherpath,pwd=pwd)   #解压压缩包
+            self.zp.extract(self.f,path=fatherpath,pwd=pwd)   #解压压缩包
             # print("ok")
             return True
         except:
@@ -102,13 +102,13 @@ class BurpZip():
         :return:
         '''
         fatherpath = self.FilePath()  # 获取传入文件的父目录
-        pwd = pwd.encode()
+        pwd = pwd.encode()            # 需要转成字节型
         for f in self.zp.namelist():  # 解压成功则全部进行解压
             try:
                 self.zp.extract(f, path=fatherpath, pwd=pwd)  # 解压
-                print("[+] " + f + "   --解压成功")
+                print("[+  解压成功] - " + f )
             except:
-                print("[+] " + f + "   --解压出错")
+                print("[X  解压失败] X " + f )
         print("压缩文件已全部解压，压缩包密码为：" + pwd.decode())
         return 0
 
@@ -121,11 +121,12 @@ class BurpZip():
         if self.UnzipFileTest(pwd=""):     #测试密码是否为空
             self.UnzipFile(pwd="")         #进行空密码打开
         else:
-            print("文件打开失败，文件存在密码，请输入密码:\n")
+            print("***文件打开失败，文件存在密码，请输入密码:***\n")
             pwd=input("密码：（进行密码爆破则直接回车）")
-            if pwd !="":
-                if self.UnzipFileTest(pwd=pwd):       #若测试解压成功，即用当前密码进行全部解压
-                    self.UnzipFile(pwd=pwd)
+            if pwd !="" and self.UnzipFileTest(pwd=pwd)==True:
+                # if self.UnzipFileTest(pwd=pwd):       #若测试解压成功，即用当前密码进行全部解压
+                self.UnzipFile(pwd=pwd)
+
             else:
                 key=input("请选择攻击字典：a纯数字，b纯小写字母，c纯大写字母，d大小写字母混合，e数字字母混合，默认e\n")
                 length=input("请合理输入密码长度上限,默认8：\n")
@@ -155,19 +156,18 @@ class BurpZip():
         :param length: 密码长度
         :return:
         '''
-        #print("run")
-        num=0
-        for x in self.PayLoad(self.key,length):  #遍历密码
-            print(x)
+
+        #num=0
+        for x in self.PayLoad(key,length):  #遍历密码
+            #print(x)
             if self.UnzipFileTest(pwd=x):       #若测试解压成功，则用当前密码进行全部解压
                 self.UnzipFile(pwd=x)
-                return True,num
+                print("爆破完成")
+                self.KillThreads()               #终止全部线程标志
+                return False                    #中断线程
+        print("线程-"+str(length)+"已跑完")
+        return False                            #中断线程
 
-            # if(x=="z"*length):
-            #     self.num=1
-        num=1    #作用：密码长度减一
-        info="no"    #标志
-        return info,num
 
 
 
@@ -176,17 +176,32 @@ class BurpZip():
         每个线程跑特定长度的密码
         :return:
         '''
-        info="no"    #标记
-        length=self.length
-        while(info=="no" and length!=0):
-            info,num=self.Burp(self.key,length)    #接收返回值
-            length=length-int(num)
+        #self.Burp(a,4)
+
+        self.threads=[]            #线程池
+        for i in range(1,self.length+1):
+            thread=threading.Thread(target=self.Burp,args=(self.key,i))    #启动爆破线程
+            self.threads.append(thread)        #添加进线程池
+            thread.start()
+
+
+    def KillThreads(self):
+        for t in self.threads:
+            t.join()
+        print("所有线程已停止")
+
+
+
 
 
 
 
 
     def FileClose(self):
+        '''
+        关闭文件
+        :return:
+        '''
         self.zp.close()
 
 

@@ -164,22 +164,38 @@ class BurpZip():
         :return:
         '''
 
-        #num=0
-        for x in self.PayLoad(key,length):  #遍历密码
-            #print(x)
-            if self.exitflag==0:
-                #print("线程强制终结")    #测试用
-                break
-            if self.UnzipFileTest(pwd=x):       #若测试解压成功，则用当前密码进行全部解压
-                self.UnzipFile(pwd=x)
-                print("*** 爆破完成 ***")
-                #self.FileClose()
-                #self.exitflag=True               #终止全部线程标志
-                return False                    #中断线程
-        print("线程-"+str(length)+"已跑完")
-        return False                            #中断线程
+        Length=int(length)  #二分密码长度，减少爆破时间
+        if(Length<3):
+            for x in self.PayLoad(key, length):  # 遍历密码
+                if self.exitflag == 0:
+                    # print("线程强制终结")    #测试用
+                    break
+                if self.UnzipFileTest(pwd=x):  # 若测试解压成功，则用当前密码进行全部解压
+                    self.UnzipFile(pwd=x)
+                    print("*** 爆破完成 ***")
+                    return False  # 中断线程
+        else:
+            if(Length%2==1):
+                RLength=Length/2    #右半部密码长度
+                LLength=RLength+1   #左半部密码长度
+            else:
+                LLength=Length/2
+                RLength=LLength
+            LLength=int(LLength)
+            RLength=int(RLength)
+            print("线程"+str(length)+"："+str(LLength)+"+"+str(RLength))
 
+            for L in self.PayLoad(key,LLength):
+                for R in self.PayLoad(key,RLength):
+                    if self.exitflag==0:
+                        break
+                    if self.UnzipFileTest(pwd=L+R):
+                        self.UnzipFile(pwd=L+R)
+                        print("*** 爆破完成 ***")
+                        return False  # 中断线程
 
+            print("线程-" + str(length) + "已停止")
+            return False  # 中断线程
 
 
     def ThreadRun(self):

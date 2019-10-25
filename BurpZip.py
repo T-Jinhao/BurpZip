@@ -13,23 +13,24 @@ import zipfile
 import os
 import threading
 import time
-
+import itertools as its
+from concurrent.futures import ThreadPoolExecutor
 
 #攻击字典
-a="0123456789"                     #纯数字
-b="abcdefghijklmnopqrstuvwxyz"     #纯小写字母
-c=b.upper()                        #纯大写字母
-d=b+c                              #大小写字母混合
-e=a+d                              #数字+字母组合
+a = "0123456789"                     #纯数字
+b = "abcdefghijklmnopqrstuvwxyz"     #纯小写字母
+c = b.upper()                        #纯大写字母
+d = b+c                              #大小写字母混合
+e = a+d                              #数字+字母组合
 
 
 
 class BurpZip():
     def __init__(self,name):
         self.file = name
-        #self.threads_max=10
+        self.max_threads = 50                      # 最大线程数
         self.OpenFile()                          #打开压缩包
-        self.exitflag =1                          #总开关
+        self.exitflag = 1                          #总开关
 
     def OpenFile(self):
         '''
@@ -70,13 +71,11 @@ class BurpZip():
         :return:密码
         '''
 
-        if (length == 1):
-            for x in key:
-                yield x
-        else:
-            for x in key:
-                for y in self.PayLoad(key, length - 1):   #循环生成指定长度密码
-                    yield x + y
+        payload=its.product(key,repeat=length)
+        return payload
+        # for x in payload:
+        #     x="".join(x)
+        #     return x
 
 
 
@@ -130,28 +129,28 @@ class BurpZip():
         else:
             print("***文件打开失败，文件存在密码，请输入密码:***\n")
             pwd=input("密码：（进行密码爆破则直接回车）")
-            if pwd !="" and self.UnzipFileTest(pwd=pwd)==True:
+            if pwd != "" and self.UnzipFileTest(pwd=pwd) == True:
                 # if self.UnzipFileTest(pwd=pwd):       #若测试解压成功，即用当前密码进行全部解压
                 self.UnzipFile(pwd=pwd)
 
             else:
-                key=input("请选择攻击字典：a纯数字，b纯小写字母，c纯大写字母，d大小写字母混合，e数字字母混合，默认e\n")
-                length=input("请合理输入密码长度上限,默认8：\n")
+                key = input("请选择攻击字典：a纯数字，b纯小写字母，c纯大写字母，d大小写字母混合，e数字字母混合，默认e\n")
+                length = input("请合理输入密码长度上限,默认8：\n")
                 if key == "a":
-                    self.key=a
+                    self.key = a
                 if key == "b":
-                    self.key=b
+                    self.key = b
                 if key == "c":
-                    self.key=c
+                    self.key = c
                 if key == "d":
-                    self.key=d
-                if key !="a" and key !="b" and key !="c" and key !="d":            #其余情况均选择最长字典
-                    self.key=e
+                    self.key = d
+                if key != "a" and key != "b" and key != "c" and key != "d":            #其余情况均选择最长字典
+                    self.key = e
                 try:
                     self.length = int(length)
                 except:
                     self.length = int("8")    #其余情况默认长度为8
-                print("开始爆破：\n密码字典内容："+self.key+"\n密码长度上限："+str(self.length))
+                print("开始爆破：\n密码字典内容：" + self.key + "\n密码长度上限：" + str(self.length))
                 self.ThreadRun()
 
 
@@ -164,9 +163,10 @@ class BurpZip():
         :return:
         '''
 
-        Length=int(length)  #二分密码长度，减少爆破时间
+        Length = int(length)  #二分密码长度，减少爆破时间
         if(Length<3):
             for x in self.PayLoad(key, length):  # 遍历密码
+                x = "".join(x)
                 if self.exitflag == 0:
                     # print("线程强制终结")    #测试用
                     break
@@ -176,18 +176,20 @@ class BurpZip():
                     return False  # 中断线程
         else:
             if(Length%2==1):
-                RLength=Length/2    #右半部密码长度
-                LLength=RLength+1   #左半部密码长度
+                RLength = Length/2    #右半部密码长度
+                LLength = RLength+1   #左半部密码长度
             else:
-                LLength=Length/2
-                RLength=LLength
-            LLength=int(LLength)
-            RLength=int(RLength)
-            print("线程"+str(length)+"："+str(LLength)+"+"+str(RLength))
+                LLength = Length/2
+                RLength = LLength
+            LLength = int(LLength)
+            RLength = int(RLength)
+            print("线程"+str(length) + "：" + str(LLength) + "+" + str(RLength))
 
             for L in self.PayLoad(key,LLength):
                 for R in self.PayLoad(key,RLength):
-                    if self.exitflag==0:
+                    L = "".join(L)
+                    R = "".join(R)      #类型转换
+                    if self.exitflag == 0:
                         break
                     if self.UnzipFileTest(pwd=L+R):
                         self.UnzipFile(pwd=L+R)
@@ -204,15 +206,15 @@ class BurpZip():
         :return:
         '''
 
-        #self.exitflag=False        #线程终止标志
-        self.threads=[]            #线程池
+        self.exitflag = False        #线程终止标志
+        threads = []
         for i in range(1,self.length+1):
-            if self.exitflag ==1:
-             thread=threading.Thread(target=self.Burp,args=(self.key,i))    #启动爆破线程
-             self.threads.append(thread)        #添加进线程池
+            if self.exitflag == 1:
+             thread = threading.Thread(target=self.Burp,args=(self.key,i))    #启动爆破线程
+             threads.append(thread)        #添加进线程池
             else:
-                self.threads = []       #self.exitflag==0时 清空线程池
-        for t in self.threads:
+                threads = []       #self.exitflag==0时 清空线程池
+        for t in threads:
             t.start()
         while 1:
             time.sleep(0.05)    #防止线程堵塞
@@ -231,7 +233,7 @@ class BurpZip():
 def main():
     x = sys.argv[1]            #获取文件名
     print("操作对象："+x)
-    R=BurpZip(x)                 #启动
+    R = BurpZip(x)                 #启动
     R.Run()                      #进行爆破
     #R.FileClose()                #关闭文件
 
